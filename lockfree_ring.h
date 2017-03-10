@@ -63,10 +63,10 @@ namespace vir { using boost::optional; }
 namespace vir {
 namespace detail
 {
-template <class T> static constexpr T msb = ~T() ^ (~T() >> 1);
+template <class T> static constexpr T msb() { return ~T() ^ (~T() >> 1); }
 }  // namespace detail
-template <class T, size_t N, bool = 0u == (N & (N - 1u)) &&    // require power of 2
-                                    (N < detail::msb<size_t>)  // require MSB(N) == 0
+template <class T, size_t N, bool = 0u == (N & (N - 1u)) &&      // require power of 2
+                                    (N < detail::msb<size_t>())  // require MSB(N) == 0
           >
 class lockfree_ring;
 template <class T, size_t N> class lockfree_ring<T, N, true>

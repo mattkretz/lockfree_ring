@@ -31,7 +31,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <array>
 #include <atomic>
 #include <cassert>
-#include <experimental/optional>
+#ifdef __has_include
+#  if __has_include(<optional>)
+#    include <optional>
+namespace vir { using std::optional; }
+#  elif __has_include(<experimental/optional>)
+#    include <experimental/optional>
+namespace vir { using std::experimental::optional; }
+#  elif __has_include(<boost/optional.hpp>)
+#    include <boost/optional.hpp>
+namespace vir { using boost::optional; }
+#  else
+#    error "optional<T> not found. Use C++17, a compiler implementing the library fundamentals TS, or Boost.Optional."
+#  endif
+#endif
 #include <type_traits>
 #include <utility>
 
@@ -133,13 +146,13 @@ public:
       rhs.did_read = true;
     }
 
-    VIR_NODISCARD std::experimental::optional<T> get() noexcept(nothrow_movable_T)
+    VIR_NODISCARD optional<T> get() noexcept(nothrow_movable_T)
     {
       assert(!did_read);
       ReadyState expected = ReadyState::Ready;
       if (b.ready.compare_exchange_weak(expected, ReadyState::Reading)) {
         T &stored = reinterpret_cast<T &>(b.object_storage);
-        std::experimental::optional<T> ret(std::move(stored));
+        optional<T> ret(std::move(stored));
         stored.~T();
         b.ready = ReadyState::Empty;
         did_read = true;

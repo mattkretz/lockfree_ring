@@ -59,10 +59,6 @@ namespace vir { using boost::optional; }
 #endif
 #endif
 
-#if !defined __cpp_constexpr || !defined __cpp_rvalue_references
-#error "This header requires a compiler with constexpr and rvalue references support."
-#endif
-
 namespace vir {
 namespace detail
 {

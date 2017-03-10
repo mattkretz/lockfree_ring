@@ -27,14 +27,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "unittest.h"
 #include "../lockfree_ring.h"
+#include "metahelpers.h"
 
 struct Data {
   static std::atomic<size_t> ctor, dtor, copied, moved;
   static size_t alive() { return ctor + copied + moved - dtor; }
   size_t x;
-  Data(size_t y) : x(y) { ++ctor; }
-  Data(const Data &rhs) : x(rhs.x) { ++copied; }
-  Data(Data &&rhs) : x(rhs.x) { ++moved; }
+  Data(size_t y) noexcept : x(y) { ++ctor; }
+  Data(const Data &rhs) noexcept : x(rhs.x) { ++copied; }
+  Data(Data &&rhs) noexcept : x(rhs.x) { ++moved; }
   ~Data() { ++dtor; }
 };
 std::atomic<size_t> Data::ctor{0};
@@ -63,6 +64,7 @@ TEST_BEGIN(NN, foo,
   for (size_t i = 0; i < NN::value; ++i) {
     VERIFY(ring.prepare_push(Data{i + 1}).try_push());
   }
+
   {
     auto pusher = ring.prepare_push(Data{NN::value + 1});
     VERIFY(!pusher.try_push());
@@ -80,3 +82,77 @@ COMPARE(size_t(Data::alive()), 0u);
 COMPARE(size_t(Data::ctor), 2u * NN::value + 2);
 COMPARE(size_t(Data::copied), 0u);
 TEST_END
+
+TEST(traits)
+{
+  VERIFY( std::is_copy_constructible<Data>::value);
+  VERIFY( std::is_move_constructible<Data>::value);
+  VERIFY( std::is_nothrow_move_constructible<Data>::value);
+
+  {
+    using T = vir::lockfree_ring<Data, 2>;
+    VERIFY(!std::is_copy_constructible<T>::value);
+    VERIFY(std::is_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_default_constructible<T>::value);
+    VERIFY(noexcept(std::declval<T &>().pop_front()));
+    VERIFY(noexcept(std::declval<T &>().pop_front().get()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<Data>())));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<Data>()).try_push()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<const Data &>())));
+    VERIFY(noexcept(
+        std::declval<T &>().prepare_push(std::declval<const Data &>()).try_push()));
+  }
+  {
+    struct A {
+      A(const A &rhs) noexcept(false);
+      A(A &&rhs) noexcept(false);
+    };
+    using T = vir::lockfree_ring<A, 2>;
+    VERIFY(!std::is_copy_constructible<T>::value);
+    VERIFY(std::is_move_constructible<T>::value);
+    VERIFY(!std::is_nothrow_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_default_constructible<T>::value);
+    VERIFY(noexcept(std::declval<T &>().pop_front()));
+    VERIFY(!noexcept(std::declval<T &>().pop_front().get()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<A>())));
+    VERIFY(!noexcept(std::declval<T &>().prepare_push(std::declval<A>()).try_push()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<const A &>())));
+    VERIFY(!noexcept(
+        std::declval<T &>().prepare_push(std::declval<const A &>()).try_push()));
+  }
+  {
+    struct A {
+      A(const A &rhs) = delete;
+      A(A &&rhs) noexcept(false);
+    };
+    using T = vir::lockfree_ring<A, 2>;
+    VERIFY(!std::is_copy_constructible<T>::value);
+    VERIFY(std::is_move_constructible<T>::value);
+    VERIFY(!std::is_nothrow_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_default_constructible<T>::value);
+    VERIFY(noexcept(std::declval<T &>().pop_front()));
+    VERIFY(!noexcept(std::declval<T &>().pop_front().get()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<A>())));
+    VERIFY(!noexcept(std::declval<T &>().prepare_push(std::declval<A>()).try_push()));
+    VERIFY(!sfinae_is_callable<const A &>(
+        [](const auto &x) -> decltype(std::declval<T &>().prepare_push(x)) {}));
+  }
+  {
+    struct A {
+      A(const A &rhs) noexcept;
+    };
+    using T = vir::lockfree_ring<A, 2>;
+    VERIFY(!std::is_copy_constructible<T>::value);
+    VERIFY(std::is_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_move_constructible<T>::value);
+    VERIFY(std::is_nothrow_default_constructible<T>::value);
+    VERIFY(noexcept(std::declval<T &>().pop_front()));
+    VERIFY(noexcept(std::declval<T &>().pop_front().get()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<A>())));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<A>()).try_push()));
+    VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<const A &>())));
+    VERIFY(
+        noexcept(std::declval<T &>().prepare_push(std::declval<const A &>()).try_push()));
+  }
+}

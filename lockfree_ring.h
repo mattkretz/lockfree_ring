@@ -52,6 +52,7 @@ template <class T, size_t N, bool = 0u == (N & (N - 1u)) &&    // require power 
 class lockfree_ring;
 template <class T, size_t N> class lockfree_ring<T, N, true>
 {
+  static constexpr bool nothrow_movable_T = std::is_nothrow_move_constructible<T>::value;
   static constexpr size_t index_mask = N - 1;
   enum class ReadyState : unsigned char { Empty, Writing, Ready, Reading };
 
@@ -62,13 +63,13 @@ template <class T, size_t N> class lockfree_ring<T, N, true>
 
     Bucket() = default;
 
-    Bucket(Bucket &&rhs) : ready(rhs.ready.load())
+    Bucket(Bucket &&rhs) noexcept(nothrow_movable_T) : ready(rhs.ready.load())
     {
       ReadyState state = ready;
       if (state == ReadyState::Ready) {
         new (&object_storage) T(std::move(reinterpret_cast<T &&>(rhs.object_storage)));
       } else {
-        // if state is Writing or Reading there's a race on move!
+        // if state is Writing or Reading there's a race on move => UB!
         assert(state == ReadyState::Empty);
       }
       rhs.ready = ReadyState::Empty;
@@ -81,7 +82,7 @@ template <class T, size_t N> class lockfree_ring<T, N, true>
         T &obj = reinterpret_cast<T &>(object_storage);
         obj.~T();
       } else {
-        // if state is Writing or Reading there's a race on destruction!
+        // if state is Writing or Reading there's a race on destruction => UB!
         assert(state == ReadyState::Empty);
       }
     }
@@ -94,18 +95,17 @@ public:
     Bucket &bucket;
     U &&payload;
     bool did_write = false;
-    writer(Bucket &b, U &&p) : bucket(b), payload(std::forward<U>(p)) {}
+    writer(Bucket &b, U &&p) noexcept : bucket(b), payload(std::forward<U>(p)) {}
 
   public:
-    writer(writer &&rhs)
-        : bucket(rhs.bucket)
-        , payload(std::forward<U>(rhs.payload))
-        , did_write(rhs.did_write)
+    writer(writer &&rhs) noexcept : bucket(rhs.bucket),
+                                    payload(std::forward<U>(rhs.payload)),
+                                    did_write(rhs.did_write)
     {
       rhs.did_write = true;
     }
 
-    VIR_NODISCARD bool try_push()
+    VIR_NODISCARD bool try_push() noexcept(noexcept(T(std::declval<U>())))
     {
       assert(!did_write);
       ReadyState expected = ReadyState::Empty;
@@ -128,9 +128,12 @@ public:
     reader(Bucket &bb) : b(bb) {}
 
   public:
-    reader(reader &&rhs) : b(rhs.b), did_read(rhs.did_read) { rhs.did_read = true; }
+    reader(reader &&rhs) noexcept : b(rhs.b), did_read(rhs.did_read)
+    {
+      rhs.did_read = true;
+    }
 
-    VIR_NODISCARD std::experimental::optional<T> get()
+    VIR_NODISCARD std::experimental::optional<T> get() noexcept(nothrow_movable_T)
     {
       assert(!did_read);
       ReadyState expected = ReadyState::Ready;
@@ -150,7 +153,8 @@ public:
 
   lockfree_ring() = default;
 
-  lockfree_ring(lockfree_ring &&rhs)
+  lockfree_ring(lockfree_ring &&rhs) noexcept(
+      std::is_nothrow_move_constructible<Bucket>::value)
       : write_index(rhs.write_index.load())
       , read_index(rhs.read_index.load())
       , buffer(std::move(rhs.buffer))
@@ -159,13 +163,13 @@ public:
 
   template <class U>
   VIR_NODISCARD std::enable_if_t<std::is_constructible<T, U &&>::value, writer<U>>
-  prepare_push(U &&x)
+  prepare_push(U &&x) noexcept
   {
       const auto wi = write_index.fetch_add(1u) & index_mask;
       return {buffer[wi], std::forward<U>(x)};
   }
 
-  VIR_NODISCARD reader pop_front()
+  VIR_NODISCARD reader pop_front() noexcept
   {
     const auto ri = read_index.fetch_add(1u) & index_mask;
     return {buffer[ri]};

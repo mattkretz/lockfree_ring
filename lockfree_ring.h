@@ -48,10 +48,12 @@ namespace vir { using boost::optional; }
 #include <type_traits>
 #include <utility>
 
-#if defined __has_cpp_attribute && __has_cpp_attribute(nodiscard)
-#define VIR_NODISCARD [[nodiscard]]
-#else
 #define VIR_NODISCARD
+#if defined __has_cpp_attribute
+#if __has_cpp_attribute(nodiscard)
+#undef VIR_NODISCARD
+#define VIR_NODISCARD [[nodiscard]]
+#endif
 #endif
 
 #if !defined __cpp_constexpr || !defined __cpp_rvalue_references

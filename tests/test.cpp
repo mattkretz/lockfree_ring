@@ -58,7 +58,7 @@ TEST_BEGIN(NN, foo,
     VERIFY(ring.prepare_push(Data{i + 1}).try_push());
     auto popped = ring.pop_front().get();
     VERIFY(bool(popped));
-    COMPARE(popped.value().x, i + 1);
+    COMPARE(popped->x, i + 1);
   }
 
   for (size_t i = 0; i < NN::value; ++i) {
@@ -71,7 +71,7 @@ TEST_BEGIN(NN, foo,
     {
       auto popped = ring.pop_front().get();
       VERIFY(bool(popped));
-      COMPARE(popped.value().x, 1u);
+      COMPARE(popped->x, 1u);
       VERIFY(pusher.try_push());
       COMPARE(size_t(Data::alive()), NN::value + 1u);
     }

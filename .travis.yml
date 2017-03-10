@@ -10,6 +10,11 @@ compiler:
     - gcc
     - clang
 
+addons:
+   apt:
+      packages:
+      - libboost-dev
+
 before_script:
     - $CXX --version
     - ls /usr/bin/gcc*

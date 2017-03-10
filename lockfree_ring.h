@@ -62,7 +62,8 @@ template <class T, size_t N> class lockfree_ring<T, N, true>
 
     Bucket() = default;
 
-    Bucket(Bucket &&rhs) : ready(std::move(rhs.ready)) {
+    Bucket(Bucket &&rhs) : ready(rhs.ready.load())
+    {
       ReadyState state = ready;
       if (state == ReadyState::Ready) {
         new (&object_storage) T(std::move(reinterpret_cast<T &&>(rhs.object_storage)));
@@ -149,7 +150,12 @@ public:
 
   lockfree_ring() = default;
 
-  lockfree_ring(lockfree_ring &&rhs) = default;
+  lockfree_ring(lockfree_ring &&rhs)
+      : write_index(rhs.write_index.load())
+      , read_index(rhs.read_index.load())
+      , buffer(std::move(rhs.buffer))
+  {
+  }
 
   template <class U>
   VIR_NODISCARD std::enable_if_t<std::is_constructible<T, U &&>::value, writer<U>>

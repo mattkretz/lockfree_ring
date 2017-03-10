@@ -180,8 +180,9 @@ public:
   }
 
   template <class U>
-  VIR_NODISCARD std::enable_if_t<std::is_constructible<T, U &&>::value, writer<U>>
-  prepare_push(U &&x) noexcept
+  VIR_NODISCARD
+      typename std::enable_if<std::is_constructible<T, U &&>::value, writer<U>>::type
+      prepare_push(U &&x) noexcept
   {
       const auto wi = write_index.fetch_add(1u) & index_mask;
       return {buffer[wi], std::forward<U>(x)};

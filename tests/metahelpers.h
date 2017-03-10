@@ -29,9 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TESTS_METAHELPERS_H_
 
 template <class... Args, class F>
-constexpr auto sfinae_is_callable(F &&f)
-    -> std::conditional_t<true, bool,
-                          decltype(std::forward<F>(f)(std::declval<Args>()...))>
+constexpr auto sfinae_is_callable(F &&f) ->
+    typename std::conditional<true, bool,
+                              decltype(std::forward<F>(f)(std::declval<Args>()...))>::type
 {
     return true;
 }

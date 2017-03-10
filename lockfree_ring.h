@@ -25,8 +25,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 }}}*/
 
-#ifndef LOCKFREE_RING_H_
-#define LOCKFREE_RING_H_
+#ifndef VIR_LOCKFREE_RING_H_
+#define VIR_LOCKFREE_RING_H_
 
 #include <array>
 #include <atomic>
@@ -169,4 +169,4 @@ private:
 };
 }  // namespace vir
 
-#endif  // LOCKFREE_RING_H_
+#endif  // VIR_LOCKFREE_RING_H_

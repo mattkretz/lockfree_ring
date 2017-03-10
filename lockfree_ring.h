@@ -35,8 +35,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <type_traits>
 #include <utility>
 
-//#define NODISCARD [[nodiscard]]
-#define NODISCARD
+#if defined __has_cpp_attribute && __has_cpp_attribute(nodiscard)
+#define VIR_NODISCARD [[nodiscard]]
+#else
+#define VIR_NODISCARD
+#endif
 
 namespace vir {
 namespace detail
@@ -101,7 +104,7 @@ public:
       rhs.did_write = true;
     }
 
-    NODISCARD bool try_push()
+    VIR_NODISCARD bool try_push()
     {
       assert(!did_write);
       ReadyState expected = ReadyState::Empty;
@@ -126,7 +129,7 @@ public:
   public:
     reader(reader &&rhs) : b(rhs.b), did_read(rhs.did_read) { rhs.did_read = true; }
 
-    NODISCARD std::experimental::optional<T> get()
+    VIR_NODISCARD std::experimental::optional<T> get()
     {
       assert(!did_read);
       ReadyState expected = ReadyState::Ready;
@@ -149,14 +152,14 @@ public:
   lockfree_ring(lockfree_ring &&rhs) = default;
 
   template <class U>
-  NODISCARD std::enable_if_t<std::is_constructible<T, U &&>::value, writer<U>>
+  VIR_NODISCARD std::enable_if_t<std::is_constructible<T, U &&>::value, writer<U>>
   prepare_push(U &&x)
   {
       const auto wi = write_index.fetch_add(1u) & index_mask;
       return {buffer[wi], std::forward<U>(x)};
   }
 
-  NODISCARD reader pop_front()
+  VIR_NODISCARD reader pop_front()
   {
     const auto ri = read_index.fetch_add(1u) & index_mask;
     return {buffer[ri]};
@@ -169,4 +172,5 @@ private:
 };
 }  // namespace vir
 
+#undef VIR_NODISCARD
 #endif  // VIR_LOCKFREE_RING_H_

@@ -77,9 +77,9 @@ template <class T, size_t N> class lockfree_ring<T, N, true>
   // avoid false sharing via alignment to the typical cacheline size
   struct alignas(64) Bucket {
     typename std::aligned_storage<sizeof(T), alignof(T)>::type object_storage;
-    std::atomic<ReadyState> ready{ReadyState::Empty};
+    std::atomic<ReadyState> ready;
 
-    Bucket() = default;
+    Bucket() noexcept : ready(ReadyState::Empty) {}
 
     Bucket(Bucket &&rhs) noexcept(nothrow_movable_T) : ready(rhs.ready.load())
     {
@@ -169,7 +169,7 @@ public:
     inline ~reader() { assert(did_read); }
   };
 
-  lockfree_ring() = default;
+  lockfree_ring() noexcept : write_index(0u), read_index(0u) {}
 
   lockfree_ring(lockfree_ring &&rhs) noexcept(
       std::is_nothrow_move_constructible<Bucket>::value)
@@ -194,8 +194,8 @@ public:
   }
 
 private:
-  std::atomic<size_t> write_index{0u};
-  std::atomic<size_t> read_index{0u};
+  std::atomic<size_t> write_index;
+  std::atomic<size_t> read_index;
   std::array<Bucket, N> buffer;
 };
 }  // namespace vir

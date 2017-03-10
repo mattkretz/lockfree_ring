@@ -44,7 +44,6 @@
 
 #include "assert.h"
 #include "macros.h"
-#include "ulp.h"
 
 #ifdef DOXYGEN
 
@@ -332,53 +331,6 @@
                                allowed_relative_difference)
 
 /**
- * \brief Verifies that \p test_value is equal to \p reference within a
- * pre-defined distance in units of least precision (ulp).
- *
- * If the test fails it will print the distance in ulp between \p test_value and
- * \p reference as well as the maximum allowed distance. Often this difference
- * is not visible in the value because the conversion of a double/float to a
- * string needs to round the value to a sensible length.
- *
- * The allowed distance can be modified by calling:
- * \code
- * UnitTest::setFuzzyness<float>(4);
- * UnitTest::setFuzzyness<double>(7);
- * \endcode
- *
- * ### ulp
- * Unit of least precision is a unit that is derived from the the least
- * significant bit in the mantissa of a floating-point value. Consider a
- * single-precision number (23 mantissa bits) with exponent \f$e\f$. Then 1
- * ulp is \f$2^{e-23}\f$. Thus, \f$\log_2(u)\f$ signifies the the number
- * incorrect mantissa bits (with \f$u\f$ the distance in ulp).
- *
- * If \p test_value and \p reference have a different exponent the meaning of
- * ulp depends on the variable you look at. The FUZZY_COMPARE code always uses
- * \p reference to determine the magnitude of 1 ulp.
- *
- * Example:
- * The value `1.f` is `0x3f800000` in binary. The value
- * `1.00000011920928955078125f` with binary representation `0x3f800001`
- * therefore has a distance of 1 ulp.
- * A positive distance means the \p test_value is larger than the \p reference.
- * A negative distance means the \p test_value is smaller than the \p reference.
- * * `FUZZY_COMPARE(1.00000011920928955078125f, 1.f)` will show a distance of 1
- * * `FUZZY_COMPARE(1.f, 1.00000011920928955078125f)` will show a distance of -1
- *
- * The value `0.999999940395355224609375f` with binary representation
- * `0x3f7fffff` has a smaller exponent than `1.f`:
- * * `FUZZY_COMPARE(0.999999940395355224609375f, 1.f)` will show a distance of
- * -0.5
- * * `FUZZY_COMPARE(1.f, 0.999999940395355224609375f)` will show a distance of 1
- *
- * ### Comparing to 0
- * Distance to 0 is implemented as comparing to <tt>std::numeric_limits<T>::min()</tt>
- * instead and adding 1 to the resulting distance.
- */
-#define FUZZY_COMPARE(test_value, reference)
-
-/**
  * \brief Call this to fail a test.
  */
 #define FAIL()
@@ -455,8 +407,6 @@ class UnitTester {  // {{{1
         expect_failure(false),
         assert_failure(0),
         expect_assert_failure(false),
-        float_fuzzyness(1.f),
-        double_fuzzyness(1.),
         only_name(0),
         m_finalized(false),
         failedTests(0),
@@ -476,8 +426,6 @@ class UnitTester {  // {{{1
   bool expect_failure;
   int assert_failure;
   bool expect_assert_failure;
-  float float_fuzzyness;
-  double double_fuzzyness;
   const char *only_name;
   bool vim_lines = false;
 
@@ -546,17 +494,6 @@ static void initTest(int argc, char **argv) {  // {{{1
     }
   }
 }
-// setFuzzyness {{{1
-template <typename T>
-static inline void setFuzzyness(T);
-template <>
-inline void setFuzzyness<float>(float fuzz) {
-  global_unit_test_object_.float_fuzzyness = fuzz;
-}
-template <>
-inline void setFuzzyness<double>(double fuzz) {
-  global_unit_test_object_.double_fuzzyness = fuzz;
-}
 void UnitTester::runTestInt(TestFunction fun, const char *name) {  // {{{1
   if (global_unit_test_object_.only_name &&
       0 != std::strcmp(name, global_unit_test_object_.only_name)) {
@@ -565,8 +502,6 @@ void UnitTester::runTestInt(TestFunction fun, const char *name) {  // {{{1
   global_unit_test_object_.status = true;
   global_unit_test_object_.expect_failure = false;
   try {
-    setFuzzyness<float>(1);
-    setFuzzyness<double>(1);
     fun();
   }
   catch (UnitTestFailure) {
@@ -612,59 +547,6 @@ void UnitTester::runTestInt(TestFunction fun, const char *name) {  // {{{1
   }
 }
 
-// ulpDiffToReferenceWrapper {{{1
-template <typename T>
-T ulpDiffToReferenceWrapper(T a, T b) {
-  const T diff = ulpDiffToReference(a, b);
-  return diff;
-}
-// unittest_fuzzyCompareHelper {{{1
-template <typename T>
-static inline bool unittest_fuzzyCompareHelper(const T &a, const T &b) {
-  return a == b;
-}
-template <>
-inline bool unittest_fuzzyCompareHelper<float>(const float &a, const float &b) {
-  return ulpDiffToReferenceWrapper(a, b) <=
-         global_unit_test_object_.float_fuzzyness;
-}
-template <>
-inline bool unittest_fuzzyCompareHelper<double>(const double &a,
-                                                const double &b) {
-  return ulpDiffToReferenceWrapper(a, b) <=
-         global_unit_test_object_.double_fuzzyness;
-}
-
-// unitttest_comparePrintHelper {{{1
-template <typename T1, typename T2, typename M>
-inline void unitttest_comparePrintHelper(const T1 &a, const T2 &b, const M &m,
-                                         const char *aa, const char *bb,
-                                         const char *file, int line,
-                                         double fuzzyness = 0.) {
-  std::cout << "       " << aa << " (" << std::setprecision(10) << a
-            << std::setprecision(6) << ") == " << bb << " ("
-            << std::setprecision(10) << b << std::setprecision(6) << ") -> "
-            << m;
-  if (fuzzyness > 0.) {
-    std::cout << " with fuzzyness " << fuzzyness;
-  }
-  std::cout << " at " << file << ":" << line << " failed.\n";
-}
-
-// unittest_fuzzynessHelper {{{1
-template <typename T>
-inline double unittest_fuzzynessHelper(const T &) {
-  return 0.;
-}
-template <>
-inline double unittest_fuzzynessHelper<float>(const float &) {
-  return global_unit_test_object_.float_fuzzyness;
-}
-template <>
-inline double unittest_fuzzynessHelper<double>(const double &) {
-  return global_unit_test_object_.double_fuzzyness;
-}
-
 class _UnitTest_Compare {  // {{{1
   template <typename T, typename ET>
   static bool absoluteErrorTest(const T &a, const T &b, ET error) {
@@ -706,7 +588,6 @@ class _UnitTest_Compare {  // {{{1
       : public decltype(has_ostream_operator_impl<T>(1)) {};
 
  public:
-  struct Fuzzy {};
   struct AbsoluteError {};
   struct RelativeError {};
 
@@ -730,31 +611,6 @@ class _UnitTest_Compare {  // {{{1
       print(std::setprecision(6));
       print(") -> ");
       print(a == b);
-    }
-  }
-
-  // Fuzzy Compare ctor {{{2
-  template <typename T>
-  ALWAYS_INLINE _UnitTest_Compare(const T &a, const T &b, const char *_a,
-                                  const char *_b, const char *_file, int _line,
-                                  Fuzzy)
-      : m_ip(getIp()), m_failed(!unittest_fuzzyCompareHelper(a, b)) {
-    if (IS_UNLIKELY(m_failed)) {
-      printFirst();
-      printPosition(_file, _line);
-      print(_a);
-      print(" (");
-      print(std::setprecision(10));
-      print(a);
-      print(") ≈ ");
-      print(_b);
-      print(" (");
-      print(std::setprecision(10));
-      print(b);
-      print(std::setprecision(6));
-      print(") -> ");
-      print(a == b);
-      printFuzzyInfo(a, b);
     }
   }
 
@@ -1005,39 +861,10 @@ class _UnitTest_Compare {  // {{{1
       print("):\n");
     }
   }
-  // printFuzzy... {{{2
-  template <typename T>
-  static inline void printFuzzyInfo(T, T) {
-  }
-  template <typename T>
-  static inline void printFuzzyInfoImpl(T a, T b, double fuzzyness) {
-    print("\ndistance: ");
-    print(ulpDiffToReferenceSigned(a, b));
-    print(" ulp, allowed distance: ±");
-    print(fuzzyness);
-    print(" ulp");
-  }
   // member variables {{{2
   const size_t m_ip;
   const bool m_failed;
 };
-// printFuzzyInfo specializations for float and double {{{1
-template <>
-inline void _UnitTest_Compare::printFuzzyInfo(float a, float b) {
-  printFuzzyInfoImpl(a, b, global_unit_test_object_.float_fuzzyness);
-}
-template <>
-inline void _UnitTest_Compare::printFuzzyInfo(double a, double b) {
-  printFuzzyInfoImpl(a, b, global_unit_test_object_.double_fuzzyness);
-}
-
-// FUZZY_COMPARE {{{1
-// Workaround for clang: The "<< ' '" is only added to silence the warnings
-// about unused return values.
-#define FUZZY_COMPARE(a, b)                                         \
-  UnitTest::_UnitTest_Compare(a, b, #a, #b, __FILE__, __LINE__,     \
-                              UnitTest::_UnitTest_Compare::Fuzzy()) \
-      << ' '
 // COMPARE_ABSOLUTE_ERROR {{{1
 #define COMPARE_ABSOLUTE_ERROR(a__, b__, error__)                           \
   UnitTest::_UnitTest_Compare(a__, b__, #a__, #b__, __FILE__, __LINE__,     \

@@ -44,6 +44,9 @@ namespace vir { using boost::optional; }
 #  else
 #    error "optional<T> not found. Use C++17, a compiler implementing the library fundamentals TS, or Boost.Optional."
 #  endif
+#else
+#  include <boost/optional.hpp>
+namespace vir { using boost::optional; }
 #endif
 #include <type_traits>
 #include <utility>

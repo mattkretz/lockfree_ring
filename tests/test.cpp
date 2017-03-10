@@ -83,6 +83,11 @@ COMPARE(size_t(Data::ctor), 2u * NN::value + 2);
 COMPARE(size_t(Data::copied), 0u);
 TEST_END
 
+template <class T> struct Caller {
+  template <class U>
+  decltype(std::declval<T &>().prepare_push(std::declval<U>())) operator()(U &&);
+};
+
 TEST(traits)
 {
   VERIFY( std::is_copy_constructible<Data>::value);
@@ -135,8 +140,7 @@ TEST(traits)
     VERIFY(!noexcept(std::declval<T &>().pop_front().get()));
     VERIFY(noexcept(std::declval<T &>().prepare_push(std::declval<A>())));
     VERIFY(!noexcept(std::declval<T &>().prepare_push(std::declval<A>()).try_push()));
-    VERIFY(!sfinae_is_callable<const A &>(
-        [](const auto &x) -> decltype(std::declval<T &>().prepare_push(x)) {}));
+    VERIFY(!sfinae_is_callable<const A &>(Caller<T>()));
   }
   {
     struct A {

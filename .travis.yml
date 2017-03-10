@@ -1,0 +1,20 @@
+language: cpp
+
+os:
+    - linux
+    - osx
+
+compiler:
+    - gcc
+    - clang
+
+before_script:
+    - $CXX --version
+    - cmake --version
+
+script:
+    - cmake -DCMAKE_BUILD_TYPE=Release .
+    - make -j2
+
+notifications:
+    email: false

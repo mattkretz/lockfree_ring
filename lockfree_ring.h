@@ -39,6 +39,10 @@ namespace vir { using std::optional; }
 #    include <experimental/optional>
 namespace vir { using std::experimental::optional; }
 #  elif __has_include(<boost/optional.hpp>)
+#    include <boost/version.hpp>
+#    if BOOST_VERSION < 105600
+#      error "Boost >= 1.56 is required for proper move semantics"
+#    endif
 #    include <boost/optional.hpp>
 namespace vir { using boost::optional; }
 #  else

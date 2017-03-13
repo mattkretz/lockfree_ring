@@ -1,28 +1,38 @@
 language: cpp
 
 os:
-    - linux
-    - osx
+  - linux
+  - osx
 
+# Linux should use the "newer" 14.04 release (12.04 is default)
 dist: trusty
 
 compiler:
-    - gcc
-    - clang
+  - gcc
+  - clang
 
 addons:
-   apt:
-      packages:
-      - libboost-dev
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-6
+      - clang-3.8
 
 before_script:
-    - $CXX --version
-    - ls /usr/bin/gcc*
-    - cmake --version
+  - case "$TRAVIS_OS_NAME-$CXX" in
+    linux-g++) export CXX=g++-6 CC=gcc-6;;
+    linux-clang++) export CXX=clang++-3.8 CC=clang-3.8;;
+    esac
+  - $CXX --version
+  - ls /usr/bin/gcc*
+  - cmake --version
 
 script:
-    - cmake -DCMAKE_BUILD_TYPE=Release .
-    - make -j2
+  - cmake -DCMAKE_BUILD_TYPE=Release .
+  - make -j2
 
 notifications:
-    email: false
+  email: false
+
+# vim: sw=2 et

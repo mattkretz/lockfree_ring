@@ -25,9 +25,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 }}}*/
 
-#include "unittest.h"
+#include <vir/test.h>
 #include "../lockfree_ring.h"
-#include "metahelpers.h"
+#include <vir/metahelpers.h>
 
 struct Data {
   static std::atomic<size_t> ctor, dtor, copied, moved;
@@ -45,43 +45,43 @@ std::atomic<size_t> Data::moved{0};
 
 template <size_t N> using _ = std::integral_constant<size_t, N>;
 
-TEST_BEGIN(NN, foo,
-           (_<1>, _<2>, _<4>, _<8>, _<0x10>, _<0x20>, _<0x40>, _<0x80>, _<0x100>,
-            _<0x200>, _<0x400>, _<0x800>, _<0x1000>, _<0x2000>, _<0x4000>, _<0x8000>))
+TEST_TYPES(NN, foo, _<1>, _<2>, _<4>, _<8>, _<0x10>, _<0x20>, _<0x40>, _<0x80>, _<0x100>,
+           _<0x200>, _<0x400>, _<0x800>, _<0x1000>, _<0x2000>, _<0x4000>, _<0x8000>)
 {
-  Data::ctor = 0;
-  Data::dtor = 0;
-  Data::copied = 0;
-  Data::moved = 0;
-  vir::lockfree_ring<Data, NN::value> ring;
-  for (size_t i = 0; i <= NN::value; ++i) {
-    VERIFY(ring.prepare_push(Data{i + 1}).try_push());
-    auto popped = ring.pop_front().get();
-    VERIFY(bool(popped));
-    COMPARE(popped->x, i + 1);
-  }
-
-  for (size_t i = 0; i < NN::value; ++i) {
-    VERIFY(ring.prepare_push(Data{i + 1}).try_push());
-  }
-
   {
-    auto pusher = ring.prepare_push(Data{NN::value + 1});
-    VERIFY(!pusher.try_push());
-    {
+    Data::ctor = 0;
+    Data::dtor = 0;
+    Data::copied = 0;
+    Data::moved = 0;
+    vir::lockfree_ring<Data, NN::value> ring;
+    for (size_t i = 0; i <= NN::value; ++i) {
+      VERIFY(ring.prepare_push(Data{i + 1}).try_push());
       auto popped = ring.pop_front().get();
       VERIFY(bool(popped));
-      COMPARE(popped->x, 1u);
-      VERIFY(pusher.try_push());
-      COMPARE(size_t(Data::alive()), NN::value + 1u);
+      COMPARE(popped->x, i + 1);
     }
-    COMPARE(size_t(Data::alive()), NN::value);
+
+    for (size_t i = 0; i < NN::value; ++i) {
+      VERIFY(ring.prepare_push(Data{i + 1}).try_push());
+    }
+
+    {
+      auto pusher = ring.prepare_push(Data{NN::value + 1});
+      VERIFY(!pusher.try_push());
+      {
+        auto popped = ring.pop_front().get();
+        VERIFY(bool(popped));
+        COMPARE(popped->x, 1u);
+        VERIFY(pusher.try_push());
+        COMPARE(size_t(Data::alive()), NN::value + 1u);
+      }
+      COMPARE(size_t(Data::alive()), NN::value);
+    }
   }
+  COMPARE(size_t(Data::alive()), 0u);
+  COMPARE(size_t(Data::ctor), 2u * NN::value + 2);
+  COMPARE(size_t(Data::copied), 0u);
 }
-COMPARE(size_t(Data::alive()), 0u);
-COMPARE(size_t(Data::ctor), 2u * NN::value + 2);
-COMPARE(size_t(Data::copied), 0u);
-TEST_END
 
 template <class T> struct Caller {
   template <class U>

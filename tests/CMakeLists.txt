@@ -1,4 +1,5 @@
 set(all "ALL")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/virtest")
 if(DEFINED ENV{APPVEYOR})
    include_directories("C:/Libraries/boost")
    set(all)

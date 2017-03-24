@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vir/test.h>
 #include "../lockfree_ring.h"
 #include <vir/metahelpers.h>
+#include <memory>
 
 struct Data {
   static std::atomic<size_t> ctor, dtor, copied, moved;
@@ -53,23 +54,24 @@ TEST_TYPES(NN, foo, _<1>, _<2>, _<4>, _<8>, _<0x10>, _<0x20>, _<0x40>, _<0x80>, 
     Data::dtor = 0;
     Data::copied = 0;
     Data::moved = 0;
-    vir::lockfree_ring<Data, NN::value> ring;
+    std::unique_ptr<vir::lockfree_ring<Data, NN::value>> ring(
+        new vir::lockfree_ring<Data, NN::value>);
     for (size_t i = 0; i <= NN::value; ++i) {
-      VERIFY(ring.prepare_push(Data{i + 1}).try_push());
-      auto popped = ring.pop_front().get();
+      VERIFY(ring->prepare_push(Data{i + 1}).try_push());
+      auto popped = ring->pop_front().get();
       VERIFY(bool(popped));
       COMPARE(popped->x, i + 1);
     }
 
     for (size_t i = 0; i < NN::value; ++i) {
-      VERIFY(ring.prepare_push(Data{i + 1}).try_push());
+      VERIFY(ring->prepare_push(Data{i + 1}).try_push());
     }
 
     {
-      auto pusher = ring.prepare_push(Data{NN::value + 1});
+      auto pusher = ring->prepare_push(Data{NN::value + 1});
       VERIFY(!pusher.try_push());
       {
-        auto popped = ring.pop_front().get();
+        auto popped = ring->pop_front().get();
         VERIFY(bool(popped));
         COMPARE(popped->x, 1u);
         VERIFY(pusher.try_push());

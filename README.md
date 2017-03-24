@@ -1,7 +1,16 @@
 Lock-free queue using a ring buffer on the stack
 ==================================================
 
-Example:
+[![license](https://img.shields.io/github/license/mattkretz/lockfree_ring.svg)](https://github.com/mattkretz/lockfree_ring/blob/master/LICENSE)
+[![language](https://img.shields.io/badge/language-C%2B%2B11-blue.svg)](https://isocpp.org/)
+[![depends](https://img.shields.io/badge/depends-virtest-brightgreen.svg)](https://github.com/mattkretz/virtest)
+
+[![Build Status](https://travis-ci.org/mattkretz/lockfree_ring.svg)](https://travis-ci.org/mattkretz/lockfree_ring)
+[![Build status](https://ci.appveyor.com/api/projects/status/5k3wkpxvoqf99ef6?svg=true)](https://ci.appveyor.com/project/mattkretz/lockfree_ring)
+
+Example
+--------------
+
 ```C++
 #include <lockfree_ring.h>
 
